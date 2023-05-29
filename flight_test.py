@@ -51,7 +51,7 @@ def on_connect(client, userdata, flags, rc):
 client = mqtt.Client()
 client.on_connect = on_connect
 
-client.connect("192.168.8.91", 1883, 60)
+client.connect("192.168.8.198", 1883, 60)
 
 
 while True:
@@ -64,7 +64,7 @@ while True:
         data.miles_to_me = distance.distance(home, location).miles
         data.speed = result.ground_speed
         if result.airline_icao in airline_callsign_to_name:
-            data.title = f'{airline_callsign_to_name[result.airline_icao]} {result.number}'
+            data.title = f'{airline_callsign_to_name[result.airline_icao]}'
         else:
             data.title = result.callsign
         if result.heading > 100 and result.heading < 300:
@@ -77,7 +77,7 @@ while True:
     print('Results:')
     publish_text = ''
     for result in processed_results:
-        text = f'{result.title} {result.aircraft} {result.miles_to_me:.01f} {result.direction} {result.speed}\n' 
+        text = f'{result.title} {result.aircraft} {result.miles_to_me:.01f} {result.direction}\n' 
         print(text)
         publish_text = publish_text + text + ' '
     client.publish("flight_data", publish_text)        
