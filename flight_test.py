@@ -1,5 +1,6 @@
 import math
 import time
+import json
 import paho.mqtt.client as mqtt
 from FlightRadar24.api import FlightRadar24API
 from geopy import distance
@@ -58,27 +59,24 @@ while True:
     processed_results = []
     results = fr_api.get_flights(bounds = bounds)
     for result in results:
-        data = tracking_data()
-        data.aircraft = result.aircraft_code
+        single_result = {}
+        single_result["Aircraft"] = result.aircraft_code
+        single_result["Speed"] = result.ground_speed
         location = (result.longitude, result.latitude)
-        data.miles_to_me = distance.distance(home, location).miles
-        data.speed = result.ground_speed
+        single_result["Distance"] = distance.distance(home, location).miles
         if result.airline_icao in airline_callsign_to_name:
-            data.title = f'{airline_callsign_to_name[result.airline_icao]}'
+            single_result["FlightNumber"] = f'{airline_callsign_to_name[result.airline_icao]}'
         else:
-            data.title = result.callsign
+            single_result["FlightNumber"] = result.callsign
         if result.heading > 100 and result.heading < 300:
-            data.direction = "Out"
+            single_result["Direction"] = "Out"
         else:
-            data.direction = "In"
-        processed_results.append(data)
+            single_result["Direction"] = "In"
+        processed_results.append(single_result)
 
-    processed_results.sort(key=lambda x : x.miles_to_me)
+    processed_results.sort(key=lambda x : x['Distance'])
     print('Results:')
-    publish_text = ''
-    for result in processed_results:
-        text = f'{result.title} {result.aircraft} {result.miles_to_me:.01f} {result.direction}\n' 
-        print(text)
-        publish_text = publish_text + text + ' '
-    client.publish("flight_data", publish_text)        
+    json_str = json.dumps(processed_results)
+    print(json_str)
+    client.publish("flight_data_json", json_str)        
     time.sleep(1)

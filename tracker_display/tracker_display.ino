@@ -7,6 +7,7 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <Fonts/Picopixel.h>
+#include <ArduinoJson.h>
 
 const char* ssid = "Josh's Wi-Fi Network";
 const char* password = "FFFFFFFFFF";
@@ -15,7 +16,7 @@ const char* mqtt_server = "192.168.8.198";
 WiFiClient espClient;
 PubSubClient client(espClient);
 long lastMsg = 0;
-char msg[512];
+char msg[1024];
 
 #define PANEL_RES_X 64      // Number of pixels wide of each INDIVIDUAL panel module. 
 #define PANEL_RES_Y 64     // Number of pixels tall of each INDIVIDUAL panel module.
@@ -38,7 +39,7 @@ void reconnect() {
     if (client.connect("FlightTrackerClient")) {
       Serial.println("connected");
       // Subscribe
-      client.subscribe("flight_data");
+      client.subscribe("flight_data_json");
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -83,6 +84,7 @@ void setup() {
   setup_wifi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
+  client.setBufferSize(1024);
 
   // Display Setup
   dma_display = new MatrixPanel_I2S_DMA(mxconfig);
@@ -98,13 +100,14 @@ void setup() {
   // fill the screen with 'black'
   dma_display->fillScreen(dma_display->color444(0, 0, 0));
 
+  dma_display->setTextWrap(false);
   dma_display->setFont(&Picopixel);
   dma_display->setTextSize(0);
 }
 
 void callback(char* topic, byte* message, unsigned int length)
 {
-  Serial.print("Message arrived on topic: ");
+  Serial.print("Message of length " + String(length) + " arrived on topic: ");
   Serial.print(topic);
   Serial.print(". Message: ");
   String messageTemp;
@@ -114,13 +117,50 @@ void callback(char* topic, byte* message, unsigned int length)
     messageTemp += (char)message[i];
   }
   Serial.println();
-  
+
+  StaticJsonDocument<1024> doc;
+  DeserializationError error = deserializeJson(doc, message);
+
+  if(error){
+    Serial.print("deserializeJson() failed: ");
+    Serial.println(error.c_str());
+    return;
+  }
+
+  Serial.println("Data");
+  Serial.println("----------------------" + String(millis()) + "-------------------");
+
   dma_display->clearScreen();
-  dma_display->setCursor(0, 4);
-  message[length] = '\0';
-  char* char_msg = (char*)message;
-  String msg = String(char_msg);
-  dma_display->print(msg);
+
+  int y = 4;
+  dma_display->setCursor(0, y);
+
+  for(JsonObject item: doc.as<JsonArray>()){
+    String Aircraft = item["Aircraft"].as<String>();
+    int speed = item["Speed"];
+    double Distance = item["Distance"];
+    String DistanceStr = String(Distance, 1);
+    String FlightNumber = item["FlightNumber"].as<String>();
+    String Direction = item["Direction"].as<String>();
+    Serial.println(Aircraft + ", " + String(speed) + ", " + DistanceStr + ", " + FlightNumber + ", " + Direction);
+
+    if(Direction == "In"){
+      dma_display->setTextColor(dma_display->color565(255, 0, 0));
+    }
+    else{
+      dma_display->setTextColor(dma_display->color565(0, 255, 0));
+    }
+
+    dma_display->print(FlightNumber);
+    dma_display->print(" ");
+    dma_display->print(Aircraft);
+    dma_display->print(" ");
+    dma_display->print(DistanceStr);
+    y += 6;
+    dma_display->setCursor(0, y);
+  }
+
+  Serial.println();
 }
 
 uint8_t wheelval = 0;
