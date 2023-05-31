@@ -18,7 +18,6 @@ home = (x, y)
 
 # Apartment rectangle
 x1 = -71.071
-#x1 = -73.0
 y1 = 42.349
 x2 = -70.906691
 y2 =  42.104463
@@ -42,8 +41,8 @@ airline_callsign_to_name = {
     'AAY': 'Allegiant',
     'POE': 'Porter Airlines',
     'KLM': 'KLM',
-    'DLH': 'Lufthansa'
-
+    'DLH': 'Lufthansa',
+    'VIR': 'Virgin Atlantic'
 }
 
 def on_connect(client, userdata, flags, rc):
@@ -68,6 +67,7 @@ while True:
             single_result["FlightNumber"] = f'{airline_callsign_to_name[result.airline_icao]}'
         else:
             single_result["FlightNumber"] = result.callsign
+        single_result["FlightNumber"] = single_result["FlightNumber"][:9]
         if result.heading > 100 and result.heading < 300:
             single_result["Direction"] = "Out"
         else:
